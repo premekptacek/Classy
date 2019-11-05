@@ -79,6 +79,16 @@
     return tokens;
 }
 
+- (NSArray *)allValuesOfTokenType:(CASTokenType)tokenType {
+    NSMutableArray *tokens = NSMutableArray.new;
+    for (CASToken *token in self.valueTokens) {
+        if (token.type == tokenType) {
+            [tokens addObject:token.value];
+        }
+    }
+    return tokens;
+}
+
 #pragma - value transformation
 
 - (BOOL)transformValuesToCGSize:(CGSize *)size {
@@ -169,7 +179,22 @@
         ?: [self valueOfTokenType:CASTokenTypeSelector]
         ?: [self valueOfTokenType:CASTokenTypeString];
 
-    if ([value isEqualToString:@"rgb"] || [value isEqualToString:@"rgba"] || [value isEqualToString:@"hsl"] || [value isEqualToString:@"hsla"]) {
+
+    if ([value isEqualToString:@"assetColor"]) {
+        NSArray *unitTokens = [self allValuesOfTokenType:CASTokenTypeRef];
+        if(unitTokens.count < 2) {
+            return NO;
+        }
+        if ([UIColor respondsToSelector:@selector(colorNamed:)]){
+            *color = [UIColor colorNamed:unitTokens[1]];
+            return YES;
+        }else{
+            CASLog(@"Error: assetColor property is only available on >iOS 11");
+            return NO;
+        }
+    }
+
+    if ([value isEqualToString:@"rgb"] || [value isEqualToString:@"rgba"] || [value isEqualToString:@"hsl"] || [value isEqualToString:@"hsla"] || [value isEqualToString:@"assetColor"]) {
         NSArray *unitTokens = [self consecutiveValuesOfTokenType:CASTokenTypeUnit];
         CGFloat alpha = 1.0;
 
@@ -217,15 +242,15 @@
     BOOL hasInsets = [self transformValuesToUIEdgeInsets:&insets];
 
     NSString *imageName = [self valueOfTokenType:CASTokenTypeString] ?: [self valueOfTokenType:CASTokenTypeRef];
-    
+
     UIImage *imageValue = nil;
     NSRange schemeRange = [imageName rangeOfString:@"://"];
     if(schemeRange.location != NSNotFound) {
-        
+
         // We are a file path instead
         NSString *scheme = [imageName substringToIndex:schemeRange.location];
         NSString *path = [imageName substringFromIndex:NSMaxRange(schemeRange)];
-        
+
         // Checking if we're fetching from one of our built in
         // document uris
         NSSearchPathDirectory searchMask = 0;
@@ -236,7 +261,7 @@
         } else if([scheme isEqualToString:@"appsupport"]) {
             searchMask = NSApplicationSupportDirectory;
         }
-        
+
         if(searchMask != 0) {
             // If we found a search mask, then use that
             NSArray *paths = NSSearchPathForDirectoriesInDomains(searchMask, NSUserDomainMask, YES);
@@ -246,13 +271,13 @@
             // Otherwise load from imageNamed as per norm
             imageValue = [UIImage imageNamed:path];
         }
-        
+
     } else {
         // We're just an old boring image name
         imageValue = [UIImage imageNamed:imageName];
     }
-    
-    
+
+
     if (hasInsets) {
         imageValue = [imageValue resizableImageWithCapInsets:insets];
     }
@@ -301,13 +326,13 @@
         CGFloat fontSizeValue = [fontSize floatValue] ?: [UIFont systemFontSize];
         if (fontName) {
             if ([fontName hasPrefix:@"System"]) {
-                
+
                 NSString *weightString = @"Regular";
                 NSArray *nameComponents = [fontName componentsSeparatedByString:@"-"];
                 if (nameComponents.count == 2) {
                     weightString = nameComponents[1];
                 }
-                
+
                 if ([weightString isEqualToString:@"Regular"]) {
                     *font = [UIFont systemFontOfSize:fontSizeValue];
                 }
@@ -325,19 +350,19 @@
                                                      @"light":       @(UIFontWeightLight),
                                                      @"ultralight":  @(UIFontWeightUltraLight)};
                     });
-                    
-                    
+
+
                     UIFont *systemFont = nil;
                     UIFontDescriptor *descriptor = nil;
-                    
+
                     if ([[UIFont class] respondsToSelector:@selector(systemFontOfSize:weight:)]) {
                         CGFloat weight = UIFontWeightRegular;
-                        
+
                         NSNumber *weightNumber = weightNameToFloatMapping[[weightString lowercaseString]];
                         if (weightNumber != nil) {
                             weight = [weightNumber floatValue];
                         }
-                        
+
                         systemFont = [UIFont systemFontOfSize:fontSizeValue weight:weight];
                         descriptor = [UIFontDescriptor fontDescriptorWithFontAttributes:@{UIFontDescriptorNameAttribute: systemFont.fontName}];
                     }
@@ -346,7 +371,7 @@
                         descriptor = [UIFontDescriptor fontDescriptorWithFontAttributes:@{UIFontDescriptorFaceAttribute: weightString,
                                                                                           UIFontDescriptorFamilyAttribute: systemFont.familyName}];
                     }
-                    
+
                     *font = [UIFont fontWithDescriptor:descriptor size:fontSizeValue];
                 }
             }
