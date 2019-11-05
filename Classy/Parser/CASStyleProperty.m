@@ -189,7 +189,7 @@
             *color = [UIColor colorNamed:unitTokens[1]];
             return YES;
         }else{
-            CASLog(@"Error: assetColor property is only available on >iOS 11");
+            NSLog(@"Error: assetColor property is only available on >iOS 11");
             return NO;
         }
     }
